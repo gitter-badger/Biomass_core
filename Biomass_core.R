@@ -21,7 +21,7 @@ defineModule(sim, list(
   citation = list("citation.bib"),
   documentation = list("README.txt", "Biomass_core.Rmd"),
   reqdPkgs = list("compiler", "crayon", "data.table", "dplyr", "fpCompare", "ggplot2", "grid", "parallel",
-                  "purrr", "quickPlot", "raster", "Rcpp", "R.utils", "scales", "sp", "tidyr",
+                  "purrr", "quickPlot", "raster", "Rcpp", "R.utils", "scales", "sp", "tidyr", "assertthat",
                   "PredictiveEcology/LandR@development (>=0.0.7)",
                   "PredictiveEcology/pemisc@development",
                   "PredictiveEcology/reproducible@development",
@@ -247,7 +247,8 @@ defineModule(sim, list(
     createsOutput("treedFirePixelTableSinceLastDisp", "data.table",
                   desc = paste("3 columns: pixelIndex, pixelGroup, and burnTime.",
                                "Each row represents a forested pixel that was burned up to and including this year,",
-                               "since last dispersal event, with its corresponding pixelGroup and time it occurred"))
+                               "since last dispersal event, with its corresponding pixelGroup and time it occurred")),
+    createsOutput("summarySubCohortData", 'data.table', desc = "diagnostic data.table created specifically for RIA - never merge")
   )
 ))
 
@@ -1054,6 +1055,20 @@ MortalityAndGrowth <- compiler::cmpfun(function(sim) {
                                         gmcsMortLimits = P(sim)$gmcsMortLimits,
                                         gmcsMinAge = P(sim)$gmcsMinAge,
                                         cohortDefinitionCols = P(sim)$cohortDefinitionCols)
+
+      if (is.null(sim$summarySubCohortData)) {
+       sim$summarySubCohortData <- data.table(year = time(sim), meanGrowth = mean(predObj$growthPred), meanMort = mean(predObj$mortPred),
+                               meanGrowthNoYng = mean(predObj[age > 21]$growthPred), meanMortNoYng = mean(predObj[age > 21]$mortPred),
+                               meanHarvestGrowth = mean(predObj[harvest == TRUE]$growthPred),
+                               meanHarvestMort = mean(predObj[harvest == 1]$mortPred))
+
+      } else {
+        thisYear <- data.table(year = time(sim), meanGrowth = mean(predObj$growthPred), meanMort = mean(predObj$mortPred),
+                               meanGrowthNoYng = mean(predObj[age > 21]$growthPred), meanMortNoYng = mean(predObj[age > 21]$mortPred),
+                               meanHarvestGrowth = mean(predObj[harvest == TRUE]$growthPred),
+                               meanHarvestMort = mean(predObj[harvest == 1]$mortPred))
+        sim$summarySubCohortData <- rbind(sim$summarySubCohortData, thisYear)
+      }
       #Join must be done this way
       commonNames <- names(predObj)[names(predObj) %in% names(subCohortData)]
       subCohortData <- subCohortData[predObj, on = commonNames]
