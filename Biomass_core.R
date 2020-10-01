@@ -57,8 +57,8 @@ defineModule(sim, list(
                           "suggested to circumvent problems caused by very small denominators as well as ",
                           "predictions outside the data range used to generate the model")),
     defineParameter('gmcsMinAge', 'numeric', 21, 0, NA,
-                    paste("if using LandR.CS for climate-sensitive growth and mortality, the minimum",
-                          "age for which to predict climate-sensitive growth and mortality.",
+                    paste("if using LandR.CS for climate-sensitive growth and mortality, the minimum age for which to predict",
+                    "climate-sensitive growth and mortality. Younger stands will be weighted by age towards no climate effect",
                           "Young stands (< 30) are poorly represented by the PSP data used to parameterize the model.")),
     defineParameter("growthAndMortalityDrivers", "character", "LandR", NA, NA,
                     desc = paste("package name where the following functions can be found:",
@@ -1055,24 +1055,27 @@ MortalityAndGrowth <- compiler::cmpfun(function(sim) {
                                         gmcsMortLimits = P(sim)$gmcsMortLimits,
                                         gmcsMinAge = P(sim)$gmcsMinAge,
                                         cohortDefinitionCols = P(sim)$cohortDefinitionCols)
-
-      if (is.null(sim$summarySubCohortData)) {
-       sim$summarySubCohortData <- data.table(year = time(sim), meanGrowth = mean(predObj$growthPred), meanMort = mean(predObj$mortPred),
-                               meanGrowthNoYng = mean(predObj[age > 21]$growthPred), meanMortNoYng = mean(predObj[age > 21]$mortPred),
-                               meanHarvestGrowth = mean(predObj[harvest == TRUE]$growthPred),
-                               meanHarvestMort = mean(predObj[harvest == 1]$mortPred))
-
-      } else {
-        thisYear <- data.table(year = time(sim), meanGrowth = mean(predObj$growthPred), meanMort = mean(predObj$mortPred),
-                               meanGrowthNoYng = mean(predObj[age > 21]$growthPred), meanMortNoYng = mean(predObj[age > 21]$mortPred),
-                               meanHarvestGrowth = mean(predObj[harvest == TRUE]$growthPred),
-                               meanHarvestMort = mean(predObj[harvest == 1]$mortPred))
-        sim$summarySubCohortData <- rbind(sim$summarySubCohortData, thisYear)
-      }
       #Join must be done this way
       commonNames <- names(predObj)[names(predObj) %in% names(subCohortData)]
       subCohortData <- subCohortData[predObj, on = commonNames]
       subCohortData[, aNPPAct := pmax(0, asInteger(aNPPAct * growthPred/100))] #changed from ratio to pct for memory
+
+      if (is.null(sim$summarySubCohortData)) {
+        sim$summarySubCohortData <- data.table(year = time(sim), meanGrowth = mean(predObj$growthPred),
+                                               meanMort = mean(predObj$mortPred),
+                                               meanGrowthNoYng = mean(predObj[age > 21]$growthPred),
+                                               meanMortNoYng = mean(predObj[age > 21]$mortPred),
+                                               meanHarvestGrowth = mean(predObj[planted == TRUE]$growthPred),
+                                               meanHarvestMort = mean(predObj[planted == TRUE]$mortPred))
+      } else {
+        thisYear <- data.table(year = time(sim), meanGrowth = mean(predObj$growthPred),
+                               meanMort = mean(predObj$mortPred),
+                               meanGrowthNoYng = mean(predObj[age > 21]$growthPred),
+                               meanMortNoYng = mean(predObj[age > 21]$mortPred),
+                               meanHarvestGrowth = mean(predObj[planted == TRUE]$growthPred),
+                               meanHarvestMort = mean(predObj[planted == TRUE]$mortPred))
+        sim$summarySubCohortData <- rbind(sim$summarySubCohortData, thisYear)
+      }
     }
     subCohortData <- calculateGrowthMortality(cohortData = subCohortData)
     set(subCohortData, NULL, "mBio", pmax(0, subCohortData$mBio - subCohortData$mAge))
