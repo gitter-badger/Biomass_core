@@ -1039,7 +1039,10 @@ MortalityAndGrowth <- compiler::cmpfun(function(sim) {
     if (P(sim)$growthAndMortalityDrivers == "LandR.CS") {
       #necessary due to column joining
       if (!is.null(subCohortData$growthPred)) {
-        set(subCohortData, NULL, c('growthPred', 'mortPred'), NULL)
+        set(subCohortData, NULL, c('growthPred', 'mortPred', 'HTp_pred'), NULL)
+      }
+      if (!is.null(subCohortData$HTp_pred)) {
+        set(subCohortData, NULL, c('HTp_pred'), NULL)
       }
       #get arguments from sim environment - this way Biomass_core is blind to whatever is used by calculateClimateEffect fxns
       #as long as the function is called 'calculateClimateEffect', represents a multiplier, and uses growth, mortality and age limits
@@ -1063,17 +1066,23 @@ MortalityAndGrowth <- compiler::cmpfun(function(sim) {
       if (is.null(sim$summarySubCohortData)) {
         sim$summarySubCohortData <- data.table(year = time(sim), meanGrowth = mean(predObj$growthPred),
                                                meanMort = mean(predObj$mortPred),
-                                               meanGrowthNoYng = mean(predObj[age > 21]$growthPred),
-                                               meanMortNoYng = mean(predObj[age > 21]$mortPred),
-                                               meanHarvestGrowth = mean(predObj[planted == TRUE]$growthPred),
-                                               meanHarvestMort = mean(predObj[planted == TRUE]$mortPred))
+                                               meanPlantedGrowth = mean(predObj[planted == TRUE]$growthPred),
+                                               meanPlantedMort = mean(predObj[planted == TRUE]$mortPred),
+                                               meanGrowthYoungNoPlant = mean(predObj[planted == FALSE & age <= time(sim) - start(sim) + 1]$growthPred),
+                                               meanMortYoungNoPlant = mean(predObj[planted == FALSE & age < time(sim) - start(sim) + 1]$mortPred),
+                                               meanHTpPlant = mean(predObj[planted == TRUE,]$HTp_pred, na.rm = TRUE),
+                                               meanHTpNoPlant = mean(predObj[planted == FALSE,]$HTp_pred, na.rm = TRUE)
+                                               )
       } else {
         thisYear <- data.table(year = time(sim), meanGrowth = mean(predObj$growthPred),
                                meanMort = mean(predObj$mortPred),
-                               meanGrowthNoYng = mean(predObj[age > 21]$growthPred),
-                               meanMortNoYng = mean(predObj[age > 21]$mortPred),
-                               meanHarvestGrowth = mean(predObj[planted == TRUE]$growthPred),
-                               meanHarvestMort = mean(predObj[planted == TRUE]$mortPred))
+                               meanPlantedGrowth = mean(predObj[planted == TRUE]$growthPred),
+                               meanPlantedMort = mean(predObj[planted == TRUE]$mortPred),
+                               meanGrowthYoungNoPlant = mean(predObj[planted == FALSE & age < time(sim) - start(sim) + 1]$growthPred),
+                               meanMortYoungNoPlant = mean(predObj[planted == FALSE & age < time(sim) - start(sim) + 1]$mortPred),
+                               meanHTpPlant = mean(predObj[planted == TRUE,]$HTp_pred, na.rm = TRUE),
+                               meanHTpNoPlant = mean(predObj[planted == FALSE,]$HTp_pred, na.rm = TRUE)
+        )
         sim$summarySubCohortData <- rbind(sim$summarySubCohortData, thisYear)
       }
     }
